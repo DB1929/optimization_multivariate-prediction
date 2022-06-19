@@ -11,6 +11,10 @@ Modeling Long- and Short-Term Temporal Patterns with Deep Neural Networks.(https
 * Pytorch 1.0+
 * numpy
 
+### Data processing
+1. data needs to put in data dictionary
+2. python data/split_data
+
 ### Example
 
 1. `Exchange Rate dataset: `stock.sh

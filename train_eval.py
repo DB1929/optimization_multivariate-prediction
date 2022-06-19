@@ -50,7 +50,7 @@ def train(data, X, Y, model, criterion, optim, args):
         optim.zero_grad()
         output = model(X)
         scale = data.scale.expand(output.size(0), data.m)
-        loss = criterion(output * scale, Y * scale)
+        loss = criterion(output * scale, Y * scale) # 损失计算按照原scale进行
         loss.backward()
 
         torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)

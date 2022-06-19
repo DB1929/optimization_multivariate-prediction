@@ -6,16 +6,20 @@ import math
 import time
 import torch
 from torch.utils.data import Dataset, DataLoader
+
+from util.tool import get_scaler, get_path
+from data.data_loader import LSTNet_dataSet
+
 import torch.nn as nn
 from models import LSTNet,MHA_Net,CNN,RNN
 import importlib
 
-
 from utils import *
 from train_eval import train, evaluate, makeOptimizer
+from exp.exp_LSTNet import Exp_LSTNet
 
 parser = argparse.ArgumentParser(description='PyTorch Time series forecasting')
-parser.add_argument('--data', default='data/exchange_rate.txt', type=str,help='location of the data file')
+parser.add_argument('--data', default='data/exchange_rate.txt', type=str, help='location of the data file')
 parser.add_argument('--model', type=str, default='LSTNet', help='')
 parser.add_argument('--window', type=int, default=24 * 7,help='window size')
 parser.add_argument('--horizon', type=int, default=12)
@@ -48,11 +52,9 @@ parser.add_argument('--hidSkip', type=int, default=5)
 parser.add_argument('--L1Loss', type=bool, default=True)
 parser.add_argument('--normalize', type=int, default=2)
 parser.add_argument('--output_fun', type=str, default='sigmoid')
-
-
-
 if __name__ == "__main__":
     args = parser.parse_args()
+
     # Choose device: cpu or gpu
     args.cuda = torch.cuda.is_available()
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -63,62 +65,27 @@ if __name__ == "__main__":
     if args.cuda:
         torch.cuda.manual_seed(args.seed)
 
-    # Load data
 
-    Data = Data_utility(args.data, 0.6, 0.2, device, args)
+    net = Exp_LSTNet(args)
+    net.train()
+
+
+
     # loss function
-    if args.L1Loss:
-        criterion = nn.L1Loss(size_average=False)
-    else:
-        criterion = nn.MSELoss(size_average=False)
-    evaluateL2 = nn.MSELoss(size_average=False)
-    evaluateL1 = nn.L1Loss(size_average=False)
-    if args.cuda:
-        criterion = criterion.cuda()
-        evaluateL1 = evaluateL1.cuda()
-        evaluateL2 = evaluateL2.cuda()
+
+    # if args.cuda:
+    #     criterion = criterion.cuda()
+    #     evaluateL1 = evaluateL1.cuda()
+    #     evaluateL2 = evaluateL2.cuda()
 
     # Select model
-    model = eval(args.model).Model(args, Data)
-    train_method = train
-    eval_method = evaluate
-    nParams = sum([p.nelement() for p in model.parameters()])
-    print('number of parameters: %d' % nParams)
-    if args.cuda:
-        model = nn.DataParallel(model)
 
-
-    best_val = 10000000
-
-    optim = makeOptimizer(model.parameters(), args)
-
-    # While training you can press Ctrl + C to stop it.
-    try:
-        print('Training start')
-        for epoch in range(1, args.epochs + 1):
-            epoch_start_time = time.time()
-
-            train_loss = train_method(Data, Data.train[0], Data.train[1], model, criterion, optim, args)
-
-            val_loss, val_rae, val_corr = eval_method(Data, Data.valid[0], Data.valid[1], model, evaluateL2, evaluateL1, args)
-            print('| end of epoch {:3d} | time used: {:5.2f}s | train_loss {:5.4f} | valid rse {:5.4f} | valid rae {:5.4f} | valid corr  {:5.4f}'.
-                    format( epoch, (time.time() - epoch_start_time), train_loss, val_loss, val_rae, val_corr))
-
-            if val_loss < best_val:
-                with open(args.save, 'wb') as f:
-                    torch.save(model, f)
-                best_val = val_loss
-            if epoch % 10 == 0:
-                test_acc, test_rae, test_corr = eval_method(Data, Data.test[0], Data.test[1], model, evaluateL2, evaluateL1,args)
-                print("| test rse {:5.4f} | test rae {:5.4f} | test corr {:5.4f}\n".format(test_acc, test_rae, test_corr))
-
-    except KeyboardInterrupt:
-        print('-' * 89)
-        print('Exiting from training early')
 
     # Load the best saved model.
-    with open(args.save, 'rb') as f:
-        model = torch.load(f)
-    test_acc, test_rae, test_corr = evaluate(Data, Data.test[0], Data.test[1], model, evaluateL2, evaluateL1,args)
-    print('Best model performance：')
-    print("| test rse {:5.4f} | test rae {:5.4f} | test corr {:5.4f}".format(test_acc, test_rae, test_corr))
+
+
+    # with open(args.save, 'rb') as f:
+    #     model = torch.load(f)
+    # test_acc, test_rae, test_corr = evaluate(Data, Data.test[0], Data.test[1], model, evaluateL2, evaluateL1,args)
+    # print('Best model performance：')
+    # print("| test rse {:5.4f} | test rae {:5.4f} | test corr {:5.4f}".format(test_acc, test_rae, test_corr))
